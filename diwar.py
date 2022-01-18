@@ -1,12 +1,13 @@
 import time
-
+import asyncio
+import aiohttp
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
 browser = webdriver.Firefox()
-browser.get('https://divar.ir/s/marivan/auto')
+browser.get('https://divar.ir/s/marivan/car')
 # url = input('Please Enter the Url: ') or 'https://divar.ir/s/kurdistan-province/auto'
 
 days_input = """How many days?
@@ -31,6 +32,7 @@ hrefs = []
 def func():
     global hrefs
     while True:
+    # for _ in range(1):
         soup = BeautifulSoup(browser.page_source, 'lxml')
         for element in soup.find_all('div', {'class': 'post-card-item'}):
             try:
@@ -49,25 +51,47 @@ def func():
 
 
 func()
-print(f'Count all Hrefs: {len(hrefs)}')
+all_count = len(hrefs)
+print(f'Count all Hrefs: {all_count}')
 motors = []
 bodies = []
+counter = 0
 
-for href in hrefs:
-    link = f'https://divar.ir{href}'
-    print(link)
-    page_content = requests.get(link).content
-    soup = BeautifulSoup(page_content, 'lxml')
-    rows = soup.find_all('div', {'class': 'kt-base-row kt-base-row--large kt-unexpandable-row'})
-    for row in rows:
-        title = row.find('p', {'class': 'kt-base-row__title kt-unexpandable-row__title'})
-        value = row.find('p', {'class': 'kt-unexpandable-row__value'})
-        if 'وضعیت موتور' in title.text:
-            if 'نیاز به تعمیر' in value.text:
-                motors.append(link)
-        elif 'وضعیت بدنه' in title.text:
-            if 'تصادفی' in value.text:
-                bodies.append(link)
+
+async def get_pages(session, link):
+    global counter
+    local_counter = counter
+    counter += 1
+    print('getting link: ', counter)
+    async with session.get(link) as page:
+        text = await page.read()
+        soup = BeautifulSoup(text.decode('utf-8'), 'html5lib')
+        rows = soup.find_all('div', {'class': 'kt-base-row kt-base-row--large kt-unexpandable-row'})
+        for row in rows:
+            title = row.find('p', {'class': 'kt-base-row__title kt-unexpandable-row__title'})
+            value = row.find('p', {'class': 'kt-unexpandable-row__value'})
+            if 'وضعیت موتور' in title.text:
+                if 'نیاز به تعمیر' in value.text:
+                    motors.append(link)
+            elif 'وضعیت بدنه' in title.text:
+                if 'تصادفی' in value.text:
+                    bodies.append(link)
+    print('finished link: ', local_counter + 1)
+
+
+async def async_requests(loop):
+    global counter
+    tasks = list()
+    async with aiohttp.ClientSession(loop=loop) as session:
+        for href in hrefs:
+            link = f'https://divar.ir{href}'
+            tasks.append(get_pages(session, link))
+        grouped_tasks = asyncio.gather(*tasks)
+        return await grouped_tasks
+
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(async_requests(loop))
 
 print(f'Count all motors: {len(motors)}')
 print(f'Count all bodies: {len(bodies)}')
