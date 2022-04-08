@@ -1,21 +1,20 @@
 import time
 import asyncio
 import aiohttp
-import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 
 browser = webdriver.Firefox()
-browser.get('https://divar.ir/s/marivan/car')
-# url = input('Please Enter the Url: ') or 'https://divar.ir/s/kurdistan-province/auto'
+browser.execute_script(f'''window.location.assign("https://divar.ir/s/marivan/car")''')
 
 days_input = """How many days?
+امروز: 0
 دیروز: 1
 پریروز: 2
 ۳ روز: 3
 ....
 : """
+
 days = int(input(days_input))
 if days > 3:
     browser.close()
@@ -32,7 +31,6 @@ hrefs = []
 def func():
     global hrefs
     while True:
-    # for _ in range(1):
         soup = BeautifulSoup(browser.page_source, 'lxml')
         for element in soup.find_all('div', {'class': 'post-card-item'}):
             try:
@@ -98,15 +96,6 @@ print(f'Count all bodies: {len(bodies)}')
 
 motors.extend(bodies)
 for link in motors:
-    # browser.find_element(By.TAG_NAME, 'body').send_keys(Keys.COMMAND + 't')
     browser.execute_script(f'''window.open("{link}", "_blank");''')
     time.sleep(2)
 
-
-# with open('cars.txt', 'w', encoding='utf-8') as file:
-#     motors.extend(body)
-#     for link in motors:
-#         file.write(f'{link},\n')
-#         browser.find_element(By.TAG_NAME, 'body').send_keys(Keys.COMMAND + 't')
-#     for link in body:
-#         file.write(f',{link}\n')
